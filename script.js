@@ -1,3 +1,17 @@
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyDt6N_UFAG0lbQslq3a2l5DAmeJmRr5XSo",
+  authDomain: "luftera-e07c7.firebaseapp.com",
+  databaseURL: "https://luftera-e07c7-default-rtdb.firebaseio.com",
+  projectId: "luftera-e07c7",
+  storageBucket: "luftera-e07c7.firebasestorage.app",
+  messagingSenderId: "1042469877468",
+  appId: "1:1042469877468:web:d7190d7d9e84bdcbffe619"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
 // ===== ELEMENTY =====
 const columnsEl = document.getElementById("columns");
 const editBtn = document.getElementById("editBtn");
@@ -20,7 +34,7 @@ let activeCard = null;
 
 // ===== INIT =====
 updateEditButton();
-renderBoard();
+listenBoardChanges();
 
 // ===== AUTH =====
 function isEditor() {
@@ -43,7 +57,6 @@ function loginUser() {
     localStorage.setItem("isEditor", "true");
     loginModal.classList.add("hidden");
     updateEditButton();
-    renderBoard();
   } else {
     errorEl.textContent = "Zły login lub hasło";
   }
@@ -52,30 +65,23 @@ function loginUser() {
 function logout() {
   localStorage.removeItem("isEditor");
   updateEditButton();
-  renderBoard();
-}
-
-// ===== DATA =====
-function getData() {
-  return JSON.parse(localStorage.getItem("board")) || [
-    {
-      name: "Do kupienia",
-      color: "#38bdf8",
-      cards: [
-        { title: "Produkt A", description: "Sprawdzić ceny u dostawców" }
-      ]
-    }
-  ];
-}
-
-function saveData(data) {
-  localStorage.setItem("board", JSON.stringify(data));
 }
 
 // ===== BOARD =====
-function renderBoard() {
+function listenBoardChanges() {
+  const boardRef = db.ref("board");
+  boardRef.on("value", snapshot => {
+    const data = snapshot.val() || [];
+    renderBoard(data);
+  });
+}
+
+function saveBoard(data) {
+  db.ref("board").set(data);
+}
+
+function renderBoard(data) {
   columnsEl.innerHTML = "";
-  const data = getData();
 
   data.forEach((col, colIndex) => {
     const column = document.createElement("div");
@@ -107,11 +113,10 @@ function renderBoard() {
             : ""
         }
       `;
-      c.onclick = () => openCard(colIndex, cardIndex);
+      c.onclick = () => openCard(colIndex, cardIndex, card);
       column.appendChild(c);
     });
 
-    // Inline add card
     if (isEditor()) {
       const addDiv = document.createElement("div");
       addDiv.className = "addCardInput";
@@ -120,7 +125,7 @@ function renderBoard() {
       input.placeholder = "Dodaj kartę...";
       input.addEventListener("keydown", e => {
         if (e.key === "Enter" && input.value.trim() !== "") {
-          addCardInline(colIndex, input.value.trim());
+          addCardInline(colIndex, input.value.trim(), data);
           input.value = "";
         }
         if (e.key === "Escape") input.value = "";
@@ -133,42 +138,34 @@ function renderBoard() {
     columnsEl.appendChild(column);
   });
 
-  // Add new column
   if (isEditor()) {
     const addCol = document.createElement("button");
     addCol.textContent = "Dodaj status";
-    addCol.onclick = addColumn;
+    addCol.onclick = () => addColumn(data);
     columnsEl.appendChild(addCol);
   }
 }
 
 // ===== ACTIONS =====
-function addColumn() {
+function addColumn(data) {
   const name = prompt("Nazwa statusu:");
   const color = prompt("Kolor (HEX):", "#64748b");
   if (!name) return;
 
-  const data = getData();
   data.push({ name, color, cards: [] });
-  saveData(data);
-  renderBoard();
+  saveBoard(data);
 }
 
 function deleteColumn(e, colIndex) {
   e.stopPropagation();
   if (!confirm("Usunąć cały status i jego zakładki?")) return;
 
-  const data = getData();
-  data.splice(colIndex, 1);
-  saveData(data);
-  renderBoard();
+  db.ref(`board/${colIndex}`).remove();
 }
 
-function addCardInline(colIndex, title) {
-  const data = getData();
+function addCardInline(colIndex, title, data) {
   data[colIndex].cards.push({ title, description: "" });
-  saveData(data);
-  renderBoard();
+  saveBoard(data);
 }
 
 function changeColor(e, colIndex) {
@@ -176,32 +173,22 @@ function changeColor(e, colIndex) {
   const color = prompt("Nowy kolor (HEX):");
   if (!color) return;
 
-  const data = getData();
-  data[colIndex].color = color;
-  saveData(data);
-  renderBoard();
+  db.ref(`board/${colIndex}/color`).set(color);
 }
 
 // ===== CARD MODAL =====
-function openCard(colIndex, cardIndex) {
+function openCard(colIndex, cardIndex, card) {
   activeCard = { colIndex, cardIndex };
-  const card = getData()[colIndex].cards[cardIndex];
-
   cardTitleEl.textContent = card.title;
   cardDescEl.value = card.description || "";
   cardDescEl.readOnly = !isEditor();
-
   cardModal.classList.remove("hidden");
 }
 
 function saveCard() {
   if (!isEditor() || !activeCard) return;
-
-  const data = getData();
-  data[activeCard.colIndex].cards[activeCard.cardIndex].description =
-    cardDescEl.value;
-
-  saveData(data);
+  const val = cardDescEl.value;
+  db.ref(`board/${activeCard.colIndex}/cards/${activeCard.cardIndex}/description`).set(val);
   closeCard();
 }
 
@@ -209,12 +196,8 @@ function deleteCard() {
   if (!isEditor() || !activeCard) return;
   if (!confirm("Usunąć tę zakładkę?")) return;
 
-  const data = getData();
-  data[activeCard.colIndex].cards.splice(activeCard.cardIndex, 1);
-
-  saveData(data);
+  db.ref(`board/${activeCard.colIndex}/cards/${activeCard.cardIndex}`).remove();
   closeCard();
-  renderBoard();
 }
 
 function closeCard() {
