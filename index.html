@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Luftera Shopping</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <span class="title">Luftera Shopping</span>
+  <button id="editBtn">Edytuj</button>
+</div>
+
+<div id="columns" class="columns"></div>
+
+<!-- LOGIN -->
+<div id="loginModal" class="modal hidden">
+  <div class="modalBox">
+    <h3>Logowanie</h3>
+    <input id="login" placeholder="Login">
+    <input id="password" type="password" placeholder="Hasło">
+    <button onclick="loginUser()">Zaloguj</button>
+    <p id="error"></p>
+  </div>
+</div>
+
+<!-- KARTA -->
+<div id="cardModal" class="modal hidden">
+  <div class="modalBox">
+    <h3 id="cardTitle"></h3>
+    <textarea id="cardDesc" placeholder="Opis zakładki..."></textarea>
+    <div class="row">
+      <button onclick="saveCard()">Zapisz</button>
+      <button onclick="deleteCard()" class="danger">Usuń</button>
+      <button onclick="closeCard()">Zamknij</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
